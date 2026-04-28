@@ -8,6 +8,7 @@ let hands = [];
 // Variables for status messages
 let modelIsLoaded = false;
 let webGLWarning = "";
+let bubbles = []; // 儲存水泡狀態的陣列
 
 function preload() {
   // Initialize HandPose model with a callback function for when it's ready
@@ -57,6 +58,14 @@ function draw() {
   let drawW = width * 0.5;
   let drawH = height * 0.5;
   image(video, width / 2, height / 2, drawW, drawH);
+  
+  // 在左上方顯示指定的文字
+  push();
+  fill(0);
+  textSize(24);
+  textAlign(LEFT, TOP); // 對齊左上角
+  text("123456789陳OO文字", 20, 20);
+  pop();
 
   // Only attempt to draw hands if the model is loaded
   if (modelIsLoaded && hands.length > 0 && video.width > 0) {
@@ -103,9 +112,49 @@ function draw() {
           noStroke();
           circle(pts[i].x, pts[i].y, 16);
         }
+
+        // 在指尖 (4, 8, 12, 16, 20) 產生水泡
+        if (frameCount % 8 === 0) { // 控制水泡產生的頻率 (每 8 幀產生一次)
+          let tips = [4, 8, 12, 16, 20];
+          for (let tip of tips) {
+            bubbles.push({
+              x: pts[tip].x,
+              y: pts[tip].y,
+              r: random(8, 18),         // 水泡半徑
+              speed: random(2, 5),      // 上升速度
+              popY: pts[tip].y - random(150, 400), // 水泡破裂的 Y 座標高度
+              seed: random(100)         // 亂數種子，用於產生左右飄動的效果
+            });
+          }
+        }
       }
     }
   }
+
+  // 更新與繪製水泡 (放在手部繪製迴圈外，確保手離開畫面時水泡仍會繼續飄動並破裂)
+  push();
+  stroke(180, 220, 255, 200); // 淺藍色半透明邊框
+  strokeWeight(2);
+  noFill();
+  // 使用反向迴圈確保在移除陣列元素 (splice) 時不會發生索引跳動的問題
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    let b = bubbles[i];
+    b.y -= b.speed;                               // 水泡向上移動
+    b.x += sin(frameCount * 0.05 + b.seed) * 1.5; // 利用 sin 函數產生水泡微微左右飄動的動態
+
+    if (b.y < b.popY || b.y < 0) {
+      bubbles.splice(i, 1); // 達到指定高度或超出畫面邊緣時「破掉」(自陣列中移除)
+    } else {
+      circle(b.x, b.y, b.r * 2); // 畫出水泡
+      // 畫一點反光弧線，讓它看起來更有「水泡」的立體感
+      push();
+      stroke(255);
+      strokeWeight(1.5);
+      arc(b.x, b.y, b.r * 1.5, b.r * 1.5, PI + QUARTER_PI, TWO_PI - QUARTER_PI);
+      pop();
+    }
+  }
+  pop();
 
   // Display a "Loading..." message until the model is ready
   if (!modelIsLoaded) {
